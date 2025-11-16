@@ -1,64 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../Controller/calendorcontroller.dart';
+import 'package:intl/intl.dart';
+import '../widgets.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
-
   @override
   State<Home> createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> {
   final CalendarController Ctr = Get.find();
-  late ScrollController dayListController;
-  late FixedExtentScrollController yearController;
-  late ScrollController monthScrollController;
-
-  final double monthItemWidth = 90;
-  final double monthItemMargin = 12;
-  late double monthTotalWidth;
 
   @override
   void initState() {
     super.initState();
-
     Ctr.setToday();
-
-    monthTotalWidth = monthItemWidth + monthItemMargin;
-    monthScrollController = ScrollController();
-    yearController = Ctr.yearList.isNotEmpty
+    Ctr.monthTotalWidth = Ctr.monthItemWidth + Ctr.monthItemMargin;
+    Ctr.monthScrollController = ScrollController();
+    Ctr.yearController = Ctr.yearList.isNotEmpty
         ? FixedExtentScrollController(
         initialItem: Ctr.yearList.indexOf(Ctr.selectedYear.value))
         : FixedExtentScrollController();
-
-    dayListController = Ctr.dayScrollController;
+    Ctr.dayListController = Ctr.dayScrollController;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Ctr.scrollToSelectedDay();
-      scrollMonthToSelected();
+      Ctr.scrollMonthToSelected(context);
+      Ctr.scrollWeekToSelected();
     });
   }
 
-  void scrollMonthToSelected() {
-    final size = MediaQuery.of(context).size;
-    if (monthScrollController.hasClients && Ctr.yearList.isNotEmpty) {
-      int yearIndex = Ctr.yearList.indexOf(Ctr.selectedYear.value);
-      int selectedMonthIndex = Ctr.selectedMonth.value; // 1..12
-      int totalIndex = yearIndex * 13 + selectedMonthIndex;
-
-      double offset =
-          (totalIndex * monthTotalWidth) - (size.width / 2) + (monthItemWidth / 2) + 60;
-
-      monthScrollController.jumpTo(offset);
-    }
-  }
 
   @override
   void dispose() {
-    yearController.dispose();
-    monthScrollController.dispose();
-    dayListController.dispose();
+    Ctr.yearController.dispose();
+    Ctr.monthScrollController.dispose();
+    Ctr.dayListController.dispose();
     super.dispose();
   }
 
@@ -71,110 +50,137 @@ class _HomeState extends State<Home> {
         bottom: false,
         child: Column(
           children: [
-            // TOP BAR: YEAR + MONTH SELECTORS
+            // year & month picker
             Container(
               height: size.height * 0.09,
-              padding:  EdgeInsets.all(2),
-              decoration: BoxDecoration(color: Colors.grey.shade200),
+              padding: EdgeInsets.all(2),
+              decoration: BoxDecoration(color: Colors.grey.shade200
+              ,border: Border.all(color:Colors.grey.shade400 )
+              ),
               child: Row(
                 children: [
-                  // YEAR SELECTOR
+                  // year scroll
                   Container(
-                    width: 69,
-                    height: 80, // limit height so it doesn't cross SafeArea
-                    child: ClipRect(
-                      child: ListWheelScrollView.useDelegate(
-                        controller: yearController,
-                        itemExtent: 40,
-                        physics: const FixedExtentScrollPhysics(),
-                        perspective: 0.002,
-                        clipBehavior: Clip.hardEdge, // enforce clipping
-                        useMagnifier: true,
-                        magnification: 1.0,
-                        onSelectedItemChanged: (index) {
-                          final year = Ctr.yearList[index];
-                          if (year != Ctr.selectedYear.value) {
-                            Ctr.changeYear(year);
-                            final offset = 13 * index * monthTotalWidth;
-                            if (monthScrollController.hasClients) {
-                              monthScrollController.animateTo(offset,
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut);
-                            }
-                          }
-                        },
-                        childDelegate: ListWheelChildBuilderDelegate(
-                          builder: (context, index) {
-                            final year = Ctr.yearList[index];
-                            return Obx(() {
-                              bool selected = year == Ctr.selectedYear.value;
-                              return Center(
-                                child: Text(
-                                  year.toString(),
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: selected ? Colors.black : Colors.grey,
-                                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                    width: 100,
+                    height: 80,
+                    child: Row(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            Icons.unfold_more,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                        ),
+                        Expanded(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade300,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(35),
+                                child: ListWheelScrollView.useDelegate(
+                                  controller: Ctr.yearController,
+                                  itemExtent: 40,
+                                  physics: FixedExtentScrollPhysics(),
+                                  perspective: 0.01,
+                                  diameterRatio: 1.2,
+                                  useMagnifier: true,
+                                  magnification: 1.1,
+                                  onSelectedItemChanged: (index) {
+                                    final year = Ctr.yearList[index];
+                                    if (year != Ctr.selectedYear.value) {
+                                      Ctr.changeYear(year);
+                                      final offset = 13 * index * Ctr.monthTotalWidth;
+                                      if (Ctr.monthScrollController.hasClients) {
+                                        Ctr.monthScrollController.animateTo(offset,
+                                            duration: Duration(milliseconds: 300),
+                                            curve: Curves.easeInOut);
+                                      }
+                                    }
+                                  },
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    builder: (context, index) {
+                                      final year = Ctr.yearList[index];
+                                      return Obx(() {
+                                        bool selected = year == Ctr.selectedYear.value;
+                                        return Center(
+                                          child: Text(
+                                            year.toString(),
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: selected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                              color:
+                                              selected ? Colors.black : Colors.grey,
+                                            ),
+                                          ),
+                                        );
+                                      });
+                                    },
+                                    childCount: Ctr.yearList.length,
                                   ),
                                 ),
-                              );
-                            });
-                          },
-                          childCount: Ctr.yearList.length,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-
-
-                  // MONTH SELECTOR
+                  // month scroll
                   Expanded(
                     child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
                         NotificationListener<ScrollNotification>(
                           onNotification: (scrollInfo) {
-                            if (!monthScrollController.hasClients) return true;
+                            if (!Ctr.monthScrollController.hasClients) return true;
 
-                            double offset = monthScrollController.offset;
+                            double offset = Ctr.monthScrollController.offset;
                             double arrowCenter = size.width / 2;
 
                             int totalItemIndex =
-                            ((offset + arrowCenter - monthItemWidth / 1-20) /
-                                monthTotalWidth)
+                            ((offset + arrowCenter - Ctr.monthItemWidth / 1 - 20) /
+                                Ctr.monthTotalWidth)
                                 .round();
 
                             int yearIndex = totalItemIndex ~/ 13;
                             int innerIndex = totalItemIndex % 13;
 
-                            if (yearIndex >= Ctr.yearList.length) {
+                            if (yearIndex >= Ctr.yearList.length)
                               yearIndex = Ctr.yearList.length - 1;
-                            }
                             if (innerIndex > 12) innerIndex = 12;
 
                             int selectedYear = Ctr.yearList[yearIndex];
-                            int selectedMonth =
-                            innerIndex == 0 ? 1 : innerIndex; // 0 = inline year
+                            int selectedMonth = innerIndex == 0 ? 1 : innerIndex;
 
                             if (selectedMonth != Ctr.selectedMonth.value) {
                               Ctr.changeMonth(selectedMonth);
                             }
                             if (selectedYear != Ctr.selectedYear.value) {
                               Ctr.changeYear(selectedYear);
-
-                              yearController.animateToItem(
+                              Ctr.yearController.animateToItem(
                                 yearIndex,
-                                duration: const Duration(milliseconds: 300),
+                                duration: Duration(milliseconds: 300),
                                 curve: Curves.easeInOut,
                               );
                             }
-
                             return true;
                           },
                           child: ListView.builder(
-                            controller: monthScrollController,
+                            controller: Ctr.monthScrollController,
                             scrollDirection: Axis.horizontal,
-                            padding:  EdgeInsets.symmetric(horizontal: 40),
-                            physics:  BouncingScrollPhysics(),
+                            padding: EdgeInsets.symmetric(horizontal: 40),
+                            physics: BouncingScrollPhysics(),
                             itemCount: Ctr.yearList.length * 13,
                             itemBuilder: (context, index) {
                               int yearBlock = index ~/ 13;
@@ -182,13 +188,12 @@ class _HomeState extends State<Home> {
                               final inlineYear = Ctr.yearList[yearBlock];
                               return Obx(() {
                                 if (innerIndex == 0) {
-                                  bool selected =
-                                      inlineYear == Ctr.selectedYear.value;
+                                  bool selected = inlineYear == Ctr.selectedYear.value;
                                   return Container(
-                                    width: monthItemWidth,
+                                    width: Ctr.monthItemWidth,
                                     alignment: Alignment.center,
                                     margin: EdgeInsets.symmetric(
-                                      horizontal: monthItemMargin / 2,
+                                      horizontal: Ctr.monthItemMargin / 2,
                                       vertical: 12,
                                     ),
                                     child: Text(
@@ -198,36 +203,31 @@ class _HomeState extends State<Home> {
                                         fontWeight: selected
                                             ? FontWeight.bold
                                             : FontWeight.normal,
-                                        color: selected
-                                            ? Colors.black
-                                            : Colors.grey.shade600,
+                                        color: Colors.purple,
                                       ),
                                     ),
                                   );
                                 } else {
                                   int monthIndex = innerIndex - 1;
-
                                   bool selected = (monthIndex + 1) ==
                                       Ctr.selectedMonth.value &&
                                       inlineYear == Ctr.selectedYear.value;
 
                                   return Container(
-                                    width: monthItemWidth,
+                                    width: Ctr.monthItemWidth,
                                     alignment: Alignment.center,
                                     margin: EdgeInsets.symmetric(
-                                      horizontal: monthItemMargin / 2,
+                                      horizontal: Ctr.monthItemMargin / 2,
                                       vertical: 12,
                                     ),
                                     child: Text(
-                                      Ctr.monthNames[monthIndex],
+                                      Ctr.monthNames[monthIndex].substring(0, 3),
                                       style: TextStyle(
-                                        fontSize: selected ? 18 : 16,
+                                        fontSize: selected ? 18 : 14,
                                         fontWeight: selected
                                             ? FontWeight.bold
                                             : FontWeight.normal,
-                                        color: selected
-                                            ? Colors.black
-                                            : Colors.grey.shade600,
+                                        color: Colors.blue,
                                       ),
                                     ),
                                   );
@@ -236,18 +236,12 @@ class _HomeState extends State<Home> {
                             },
                           ),
                         ),
-
-                        // ARROW IN CENTER
                         Positioned(
-                          bottom: -23,
+                          bottom: -25,
                           left: 0,
                           right: 0,
-                          child: const Center(
-                            child: Icon(
-                              Icons.arrow_drop_up,
-                              size: 55,
-                              color: Colors.black,
-                            ),
+                          child: Center(
+                            child: Icon(Icons.arrow_drop_up, size: 55, color: Colors.purple),
                           ),
                         ),
                       ],
@@ -256,133 +250,252 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
-
-            // MAIN CONTENT: SIDEBAR + DAY LIST + CHECKBOXES
+            // calendar events
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // SIDEBAR: Days List
+                  // day column
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Container(
                         width: size.width * 0.18,
-                        padding: const EdgeInsets.all(2),
+                        padding: EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: [Colors.orange, Colors.green],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight),
-                            borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(5),
-                                topLeft: Radius.circular(5))),
+                          color: Colors.grey.shade300,
+                        ),
                         child: Container(
-                          color: Colors.grey.shade100,
-                          child: Obx(() => Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              Text(
-                                Ctr.dayName(
-                                    Ctr.selectedYear.value,
-                                    Ctr.selectedMonth.value,
-                                    Ctr.selectedDate.value),
-                                style: const TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 10),
-                              Expanded(
-                                child: ListView.builder(
-                                  controller: dayListController,
-                                  itemCount: Ctr.daysInMonth,
-                                  itemBuilder: (context, index) {
-                                    final day = index + 1; // day number
-
-                                    return GestureDetector(
-                                      onTap: () => Ctr.selectedDate.value = day,
-                                      child: Obx(() {
-                                        // Define the selected day here
-                                        bool isSelectedDay = day == Ctr.selectedDate.value;
-
-                                        bool isWeekHighlighted = false;
+                          color: Colors.grey.shade200,
+                          child: Obx(() {
+                            List<DateTime> days = Ctr.weekView.value
+                                ? Ctr.getDaysForWeekView()
+                                : List.generate(
+                              Ctr.daysInMonth,
+                                  (i) => DateTime(
+                                  Ctr.selectedYear.value,
+                                  Ctr.selectedMonth.value,
+                                  i + 1),
+                            );
+                            if (Ctr.weekView.value) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                Ctr.scrollWeekToSelected();
+                              });
+                            }
+                            return Column(
+                              children: [
+                                SizedBox(height: 8),
+                                if (Ctr.weekView.value)
+                                  IconButton(
+                                    icon: Icon(Icons.arrow_circle_up,
+                                        color: Colors.purple, size: 40),
+                                    onPressed: () {
+                                      Ctr.previousWeek();
+                                      WidgetsBinding.instance.addPostFrameCallback(
+                                              (_) => Ctr.scrollWeekToSelected());
+                                    },
+                                  ),
+                                if (!Ctr.weekView.value)
+                                  Text(
+                                    Ctr.dayName(
+                                      Ctr.selectedYear.value,
+                                      Ctr.selectedMonth.value,
+                                      Ctr.selectedDate.value,
+                                    ),
+                                    style: TextStyle(
+                                        fontSize: 20, fontWeight: FontWeight.bold),
+                                  ),
+                                if (!Ctr.weekView.value) SizedBox(height: 10),
+                                Expanded(
+                                  child: ListView.builder(
+                                    controller: Ctr.dayListController,
+                                    itemCount: days.length,
+                                    itemBuilder: (context, index) {
+                                      final day = days[index];
+                                      bool isCurrentMonth = Ctr.isCurrentMonth(day);
+                                      return Obx(() {
+                                        bool isSelectedDay = day.day == Ctr.selectedDate.value &&
+                                            day.month == Ctr.selectedMonth.value &&
+                                            day.year == Ctr.selectedYear.value;
+                                        // Background color logic
+                                        Color bgColor = Colors.transparent;
                                         if (Ctr.weekView.value) {
-                                          int sel = Ctr.selectedDate.value;
-                                          int start = sel - ((sel - 1) % 7);
-                                          int end = start + 6;
-                                          if (day >= start && day <= end) {
-                                            isWeekHighlighted = true;
+                                          bgColor = Colors.blue.withOpacity(0.3);
+                                        } else if (Ctr.dayView.value && isSelectedDay) {
+                                          bgColor = Colors.green.withOpacity(0.4); // selected day in day view
+                                        } else if (Ctr.monthView.value) {
+                                          if (isSelectedDay) {
+                                            bgColor = Colors.orange.withOpacity(0.5); // selected day in month view
+                                          } else if (isCurrentMonth) {
+                                            bgColor = Colors.yellow.withOpacity(0.3); // other days in month
                                           }
                                         }
-
-                                        bool isMonthHighlighted = Ctr.monthView.value;
-
-                                        Color bgColor = isMonthHighlighted
-                                            ? Colors.yellow.withOpacity(0.4)
-                                            : isWeekHighlighted
-                                            ? Colors.blue.withOpacity(0.3)
-                                            : isSelectedDay && Ctr.dayView.value
-                                            ? Colors.green.withOpacity(0.4)
-                                            : Colors.transparent;
-
-                                        Color borderColor =
-                                        isSelectedDay && Ctr.dayView.value ? Colors.black : Colors.transparent;
-
-                                        return Container(
-                                          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                                          padding: const EdgeInsets.all(12),
-                                          height: 64, // important for correct scroll-to-position
-                                          decoration: BoxDecoration(
-                                            color: bgColor,
-                                            border: Border.all(color: borderColor, width: 2),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              day.toString(),
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: isSelectedDay ? FontWeight.bold : FontWeight.normal,
+                                        return GestureDetector(
+                                          onTap: () {
+                                            Ctr.changeDate(day.year, day.month, day.day);
+                                          },
+                                          child: Container(
+                                            margin: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                                            padding: EdgeInsets.all(12),
+                                            height: 64,
+                                            decoration: BoxDecoration(
+                                              color: bgColor,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                day.day.toString(),
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: isCurrentMonth ? Colors.black : Colors.purple,
+                                                  fontWeight: isSelectedDay ? FontWeight.bold : FontWeight.normal,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         );
-                                      }),
-                                    );
-                                  },
+                                      });
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
-                          )),
+                                SizedBox(height: 3),
+                                if (Ctr.weekView.value)
+                                  IconButton(
+                                    icon: Icon(Icons.arrow_circle_down,
+                                        color: Colors.purple, size: 40),
+                                    onPressed: () {
+                                      Ctr.nextWeek();
+                                      WidgetsBinding.instance.addPostFrameCallback(
+                                              (_) => Ctr.scrollWeekToSelected());
+                                    },
+                                  ),
+                                if (Ctr.weekView.value) SizedBox(height: 100),
+                              ],
+                            );
+                          }),
                         ),
                       ),
                       Positioned(
                         top: 62,
                         right: -18,
                         child: Icon(Icons.play_arrow, size: 30, color: Colors.green),
-                      )
+                      ),
                     ],
                   ),
+                  SizedBox(width: 12),
+                  // right side: events
+                  Expanded(
+                    child: Column(
+                      children: [
+                        SizedBox(height: 10),
+                        Row(
+                          children: [
+                            circleViewButton("day", Ctr.dayView, Ctr),
+                            SizedBox(width: 12),
+                            circleViewButton("week", Ctr.weekView, Ctr),
+                            SizedBox(width: 12),
+                            circleViewButton("month", Ctr.monthView, Ctr),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        Obx(() => Container(
+                          width: double.infinity,
+                          padding:
+                          EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                          color: Colors.grey.shade200,
+                          child: Text(
+                            Ctr.eventHeader.value,
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        )),
+                        SizedBox(height: 8),
+                        Expanded(
+                          child: Obx(() {
+                            final events = Ctr.dayView.value
+                                ? Ctr.eventsForSelectedDay
+                                : Ctr.eventsForCurrentSelection;
+                            if (events.isEmpty) {
+                              return Center(
+                                child: Container(
+                                  width: 250,
+                                  height: 300,
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade100,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: RichText(
+                                      textAlign: TextAlign.start,
+                                      textWidthBasis: TextWidthBasis.parent,
+                                      text: TextSpan(
+                                        style: TextStyle(
+                                            fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+                                        children: [
+                                          TextSpan(text: "Events only available from "),
+                                          TextSpan(
+                                            text: "01/01/2025",
+                                            style: TextStyle(color: Colors.purple),
+                                          ),
+                                          TextSpan(text: " to "),
+                                          TextSpan(
+                                            text: "01/01/2026",
+                                            style: TextStyle(color: Colors.purple),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            return ListView.builder(
+                              itemCount: events.length,
+                              itemBuilder: (context, index) {
+                                final event = events[index];
+                                String formattedDate =
+                                DateFormat('dd MMM yyyy').format(event.startDate);
 
-                  const SizedBox(width: 16),
+                                return Card(
+                                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                                  elevation: 4,
+                                  shadowColor: Colors.green,
+                                  child: ListTile(
+                                    onTap: () => showEventPopup(context, events, index),
+                                    title: Text(
+                                      event.title,
+                                      style: TextStyle(
+                                        color: Colors.purple,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      formattedDate,
+                                      style: TextStyle(color: Colors.blue),
+                                    ),
+                                    trailing: Text(
+                                      "View",
+                                      style: TextStyle(
+                                        color: Colors.green.shade300,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
 
-                  // DAY / WEEK / MONTH CHECKBOXES
-                  Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          circleViewButton("day", Ctr.dayView, Ctr),
-                          const SizedBox(width: 12),
-                          circleViewButton("week", Ctr.weekView, Ctr),
-                          const SizedBox(width: 12),
-                          circleViewButton("month", Ctr.monthView, Ctr),
-                        ],
-                      )
-                    ],
-                  )
+                                      ),
+                                    ),
+                                  ),
+                                );
+
+                              },
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -390,23 +503,7 @@ class _HomeState extends State<Home> {
   }
 }
 
-Widget circleViewButton(String type, RxBool isActive, CalendarController ctr) {
-  return Obx(() => GestureDetector(
-    onTap: () => ctr.changeView(type),
-    child: Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: isActive.value ? Colors.black : Colors.grey, width: 2),
-        color: isActive.value ? Colors.black : Colors.white,
-      ),
-      child: Center(
-          child: Text(type.substring(0, 1).toUpperCase(),
-              style: TextStyle(
-                  color: isActive.value ? Colors.white : Colors.black,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold))),
-    ),
-  ));
-}
+
+
+
+
